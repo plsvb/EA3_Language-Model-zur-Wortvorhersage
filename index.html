@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Next‑Word Prediction mit LSTM & TensorFlow.js</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Favicon -->
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <!-- D3.js -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <style>
+    body {
+      background: #f8f9fa;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    main {
+      flex: 1;
+      padding-top: 70px; /* Platz für sticky Header */
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    #chart {
+      width: 100%;
+      height: 200px;
+    }
+    footer {
+      background: #212529;
+      color: #dee2e6;
+      padding: 1rem 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- STICKY HEADER -->
+  <header class="bg-dark text-light py-3 shadow-sm">
+    <div class="container d-flex flex-wrap justify-content-between align-items-center">
+      <h1 class="h5 mb-0">Next‑Word Prediction (Deutsch)</h1>
+      <nav>
+        <a href="#anleitung" class="text-light me-3 text-decoration-none">Anleitung</a>
+        <a href="#app" class="text-light me-3 text-decoration-none">Anwendung</a>
+        <a href="#doku" class="text-light me-3 text-decoration-none">Doku</a>
+        <a href="#fazit" class="text-light text-decoration-none">Fazit</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- HAUPTINHALT -->
+  <main class="container py-4">
+
+    <!-- Einleitung -->
+    <section class="text-center mb-4">
+      <h2 class="fw-bold">Language Model zur Wortvorhersage</h2>
+      <p class="lead text-muted">
+        Ein rekurrentes Long Short‑Term Memory (LSTM) Modell, konvertiert für TensorFlow.js, das deutsche Texte versteht und das nächste Wort vorhersagen kann.
+      </p>
+    </section>
+
+    <!-- ANLEITUNG ZUERST -->
+    <section id="anleitung" class="mb-5">
+      <h3>Anleitung zur Nutzung</h3>
+      <p>So kannst du das Language Model interaktiv verwenden:</p>
+      <ol>
+        <li>Warte, bis das Modell vollständig geladen ist (Status verschwindet automatisch).</li>
+        <li>Gib einen Starttext mit vollständigen Wörtern ein.</li>
+        <li>Klicke <strong>Vorhersage</strong>, um die wahrscheinlichsten nächsten Wörter zu sehen.</li>
+        <li>Wähle ein Wort aus der Liste oder klicke <strong>Weiter</strong>, um das Top‑1 Wort automatisch anzuhängen.</li>
+        <li>Mit <strong>Auto</strong> generiert das Modell bis zu 10 Wörter automatisch. <strong>Stopp</strong> unterbricht den Vorgang.</li>
+        <li><strong>Reset</strong> löscht den Text und setzt die App zurück.</li>
+      </ol>
+    </section>
+
+    <!-- APP-BEREICH -->
+    <section id="app" class="mb-5">
+      <!-- STATUS (wird nach Laden ausgeblendet) -->
+      <div id="status" class="alert alert-info text-center mb-4">
+        <i class="bi bi-cloud-download"></i> Lade LSTM‑Modell…
+      </div>
+
+      <!-- TEXT-EINGABE -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="card-title fw-semibold">Starte mit einem Satz</h5>
+          <p class="text-muted">Das Modell nutzt die letzten <strong>seqLen</strong> Wörter als Kontext, um das nächste Wort vorherzusagen.</p>
+          <textarea 
+            class="form-control" 
+            id="inputText" 
+            rows="3" 
+            placeholder="Gib hier einen Starttext ein, z. B.: ‚Heute gehe ich‘ …"></textarea>
+        </div>
+      </div>
+
+      <!-- BUTTONS -->
+      <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+        <button id="predictBtn" class="btn btn-primary" disabled>
+          <i class="bi bi-lightning-fill"></i> Vorhersage
+        </button>
+        <button id="continueBtn" class="btn btn-secondary" disabled>
+          <i class="bi bi-arrow-return-right"></i> Weiter
+        </button>
+        <button id="autoBtn" class="btn btn-success" disabled>
+          <i class="bi bi-play-circle"></i> Auto (10 Wörter)
+        </button>
+        <button id="stopBtn" class="btn btn-warning" disabled>
+          <i class="bi bi-stop-circle"></i> Stopp
+        </button>
+        <button id="resetBtn" class="btn btn-danger" disabled>
+          <i class="bi bi-trash"></i> Reset
+        </button>
+      </div>
+
+      <!-- TOP-5 VORHERSAGEN -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Wahrscheinlichste nächste Wörter (Top‑5)</h5>
+          <svg id="chart"></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- DOKUMENTATION -->
+    <section id="doku" class="mb-5">
+      <h3>Dokumentation</h3>
+      <p><strong>Technisch:</strong> Dieses Modell ist ein <em>Stacked LSTM</em> mit zwei versteckten Schichten (je 100 Units), Softmax-Output, Adam-Optimizer (lr=0.01) und Categorical Cross‑Entropy Loss. Es wurde in Python trainiert und mit TensorFlow.js konvertiert.</p>
+      <p><strong>Frameworks:</strong> TensorFlow.js (Modellvorhersage), D3.js (Visualisierung), Bootstrap (UI/UX), optional Danfo.js für Datenanalyse.</p>
+      <p><strong>Trainingsdaten:</strong> z. B. Leipzig Corpora Collection (3 Mio. Sätze aus Nachrichten).</p>
+      <p><strong>Fachlich:</strong> Das LM lernt Sprachmuster aus dem Korpus und gibt probabilistische Vorhersagen aus. Experimentiere mit Top‑k Genauigkeit, Perplexity und vergleiche verschiedene Datensätze.</p>
+    </section>
+
+    <!-- FAZIT / DISKUSSION -->
+    <section id="fazit" class="mb-5">
+      <h3>Fazit & Diskussion</h3>
+      <p>Hier kannst du deine Beobachtungen zu Modellqualität, Usability und Training dokumentieren:</p>
+      <textarea class="form-control" rows="5" placeholder="Notiere hier Ergebnisse deiner Experimente, Genauigkeit (Top‑k), Perplexity und dein Fazit …"></textarea>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <small>
+        &copy; 2025 Next‑Word Prediction Demo &middot; Erstellt mit TensorFlow.js, Bootstrap & D3.js
+      </small>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Prediction-Logik -->
+  <script src="predict.js"></script>
+  <!-- UI -->
+  <script src="ui.js"></script>
+
+  <!-- Nach Modell-Laden den Status ausblenden -->
+  <script>
+    // Diese Funktion wird nach Modell-Laden aufgerufen
+    function hideStatusWhenLoaded() {
+      const statusDiv = document.getElementById('status');
+      if (statusDiv) {
+        statusDiv.style.display = 'none';
+      }
+    }
+
+    // Hook ins Laden des Modells (wenn predict.js fertig ist)
+    document.addEventListener("modelLoaded", () => {
+      hideStatusWhenLoaded();
+    });
+  </script>
+</body>
+</html>
