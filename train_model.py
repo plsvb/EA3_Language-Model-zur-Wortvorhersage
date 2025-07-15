@@ -15,9 +15,9 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 tf.keras.backend.clear_session()
 
 # ---------------------------
-# 1) Faust.txt laden
+
 # ---------------------------
-with open("deu_wikipedia_2021_10K-sentences.txt", "r", encoding="utf-8") as f:
+with open("cleaned.txt", "r", encoding="utf-8") as f:
     raw_text = f.read()
 
 print(f"📖 Original Textlänge: {len(raw_text)} Zeichen")
